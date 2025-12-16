@@ -386,40 +386,7 @@ const lidCache = new NodeCache({
 	return null;
 	};
 
-	const checkButtonType = (message: proto.IMessage): string => {
-		const buttons = message?.interactiveMessage?.nativeFlowMessage?.buttons;
 
-		if (!buttons) return 'invalid';
-		if (buttons.length === 0) return 'empty';
-
-		const firstType = buttons[0]?.name;
-		if (!firstType) return 'invalid';
-
-		const allSameType = buttons.every((btn) => btn.name === firstType);
-
-		const typeMap: Record<string, string> = {
-			review_and_pay: 'order_details',
-			payment_info: 'payment_info',
-			review_order: 'order_status',
-			payment_status: 'payment_status',
-			payment_method: 'payment_method',
-			open_webview: 'message_with_link',
-			message_with_link_status: 'message_with_link_status',
-			cta_url: 'cta_url',
-			cta_call: 'cta_call',
-			quick_reply: 'mixed',
-			cta_catalog: 'cta_catalog',
-			cta_copy: 'cta_copy_code',
-			galaxy_message: 'cta_flow',
-			single_select: 'mixed'
-		};
-
-		if (allSameType) {
-			return typeMap[firstType] ?? firstType;
-		}
-
-		return 'mixed';
-	};
 
 	const relayMessage = async (
 		jid: string,
@@ -433,7 +400,8 @@ const lidCache = new NodeCache({
 			useCachedGroupMetadata,
 			statusJidList,
 			isretry
-		}: MessageRelayOptions
+		}: MessageRelayOptions,
+
 	) => {
 		const meId = authState.creds.me!.id
 		const meLid =  authState.creds.me!.lid || authState.creds.me!.id
@@ -746,7 +714,7 @@ const lidCache = new NodeCache({
 				;(stanza.content as BinaryNode[]).push(...additionalNodes)
 			}
 			const content = normalizeMessageContent(message)!
-			const contentType = getContentType(content)!
+				const contentType = getContentType(content)!
 
 				if((isJidGroup(jid) || isJidUser(jid))  || isLidUser(jid) && (
 					contentType === 'interactiveMessage' ||
@@ -780,55 +748,6 @@ const lidCache = new NodeCache({
 
 					(stanza.content as BinaryNode[]).push(bizNode)
 				}
-
-			if (message?.listMessage) {
-				(stanza.content as BinaryNode[]).push({
-					tag: 'biz',
-					attrs: {},
-					content: [
-						{
-							tag: 'list',
-							attrs: { v: '2', type: 'product_list' },
-						}
-					]
-				});
-
-				logger.debug({ jid }, 'adding business node');
-			}
-
-			if (message?.interactiveMessage?.nativeFlowMessage) {
-				const buttonType = checkButtonType(message);
-
-				(stanza.content as BinaryNode[]).push({
-					tag: 'biz',
-					attrs: { ...(buttonType === "payment_info" || buttonType === "review_and_pay" ? { native_flow_name: buttonType } : {}), },
-					...(buttonType !== "payment_info" && buttonType !== "review_and_pay"
-						? {
-							content: [
-								{
-									tag: 'interactive',
-									attrs: {
-										type: 'native_flow',
-										v: '1'
-									},
-									content: [
-										{
-											tag: 'native_flow',
-											attrs: {
-												v: '9',
-												name: 'mixed'
-											}
-										}
-									]
-								}
-							]
-						}
-						: {})
-				});
-
-				logger.debug({ jid }, 'adding business node');
-			}
-
 
 			logger.debug({ msgId }, `sending message to ${participants.length} devices`)
 
