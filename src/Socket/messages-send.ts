@@ -808,14 +808,15 @@ const lidCache = new NodeCache({
 								{
 									tag: 'interactive',
 									attrs: {
-										type: 'native_flow'
+										type: 'native_flow',
+										v: '1'
 									},
 									content: [
 										{
 											tag: 'native_flow',
 											attrs: {
-												v: "2",
-												name: buttonType
+												v: '9',
+												name: 'mixed'
 											}
 										}
 									]
