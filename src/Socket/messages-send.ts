@@ -79,7 +79,7 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 	const userDevicesCache =
 		config.userDevicesCache ||
 		new NodeCache({
-			stdTTL: DEFAULT_CACHE_TTLS.USER_DEVICES, 
+			stdTTL: DEFAULT_CACHE_TTLS.USER_DEVICES,
 			useClones: false
 		})
 
@@ -248,7 +248,7 @@ const lidCache = new NodeCache({
 		return deviceResults
 	}
 
-	
+
 	const assertSessions = async (jids: string[], force: boolean, lids?: string) => {
 		let didFetchNewSession = false
 		const melid = jidNormalizedUser(authState.creds.me?.lid)
@@ -370,14 +370,14 @@ const lidCache = new NodeCache({
 	const cachedLid = lidCache.get(jid);
 	if (cachedLid) {
 		return cachedLid;
-	}	
+	}
 	const usyncQuery = new USyncQuery()
 		.withContactProtocol()
 		.withLIDProtocol()
-		.withUser(new USyncUser().withPhone(jid.split('@')[0]));	
-	const results = await sock.executeUSyncQuery(usyncQuery);	
+		.withUser(new USyncUser().withPhone(jid.split('@')[0]));
+	const results = await sock.executeUSyncQuery(usyncQuery);
 	if (results?.list) {
-		const maybeLid = results.list[0]?.lid;	
+		const maybeLid = results.list[0]?.lid;
 		if (typeof maybeLid === 'string') {
 		lidCache.set(jid, maybeLid);
 		return maybeLid;
@@ -386,7 +386,40 @@ const lidCache = new NodeCache({
 	return null;
 	};
 
+	const checkButtonType = (message: proto.IMessage): string => {
+		const buttons = message?.interactiveMessage?.nativeFlowMessage?.buttons;
 
+		if (!buttons) return 'invalid';
+		if (buttons.length === 0) return 'empty';
+
+		const firstType = buttons[0]?.name;
+		if (!firstType) return 'invalid';
+
+		const allSameType = buttons.every((btn) => btn.name === firstType);
+
+		const typeMap: Record<string, string> = {
+			review_and_pay: 'order_details',
+			payment_info: 'payment_info',
+			review_order: 'order_status',
+			payment_status: 'payment_status',
+			payment_method: 'payment_method',
+			open_webview: 'message_with_link',
+			message_with_link_status: 'message_with_link_status',
+			cta_url: 'cta_url',
+			cta_call: 'cta_call',
+			quick_reply: 'mixed',
+			cta_catalog: 'cta_catalog',
+			cta_copy: 'cta_copy_code',
+			galaxy_message: 'cta_flow',
+			single_select: 'mixed'
+		};
+
+		if (allSameType) {
+			return typeMap[firstType] ?? firstType;
+		}
+
+		return 'mixed';
+	};
 
 	const relayMessage = async (
 		jid: string,
@@ -400,11 +433,10 @@ const lidCache = new NodeCache({
 			useCachedGroupMetadata,
 			statusJidList,
 			isretry
-		}: MessageRelayOptions,
-	
+		}: MessageRelayOptions
 	) => {
 		const meId = authState.creds.me!.id
-		const meLid =  authState.creds.me!.lid || authState.creds.me!.id		
+		const meLid =  authState.creds.me!.lid || authState.creds.me!.id
 		const lidattrs = jidDecode(authState.creds.me?.lid);
 		const jlidUser = lidattrs?.user
 		let  lids: string
@@ -415,8 +447,8 @@ const lidCache = new NodeCache({
 					if(!isLidUser(userQuery))
 						{
 
-                        const verify = await caches.lidCache.get(userQuery);					
-						if(verify){ 
+                        const verify = await caches.lidCache.get(userQuery);
+						if(verify){
 							lids = verify
 						}
 						else
@@ -427,8 +459,8 @@ const lidCache = new NodeCache({
 							const maybeLid = results.list[0]?.lid;
 								if (typeof maybeLid === 'string') {
 								caches.lidCache.set(userQuery,maybeLid)
-								lids = maybeLid;								
-								}					
+								lids = maybeLid;
+								}
 						   }
 						}
 					}
@@ -437,10 +469,10 @@ const lidCache = new NodeCache({
 		const statusJid = 'status@broadcast'
 		const isGroup = server === 'g.us'
 		const isStatus = jid === statusJid
-		const isLid = server === 'lid'				
+		const isLid = server === 'lid'
 		const isNewsletter = server === 'newsletter'
 
-		let shouldIncludeDeviceIdentity = false		
+		let shouldIncludeDeviceIdentity = false
 
 		msgId = msgId || generateMessageIDV2(sock.user?.id)
 		useUserDevicesCache = useUserDevicesCache !== false
@@ -450,23 +482,23 @@ const lidCache = new NodeCache({
 		const destinationJid = !isStatus ? jidEncode(user, isLid ? 'lid' : isGroup ? 'g.us' : 's.whatsapp.net') : statusJid
 		const binaryNodeContent: BinaryNode[] = []
 		const devices: JidWithDevice[] = []
-		
+
 		const meMsg: proto.IMessage = {
 			deviceSentMessage: {
 				destinationJid,
 				message
 			}
 		}
-		   
+
 		const extraAttrs = {}
 
 		if (participant) {
-	
+
 			if (!isGroup && !isStatus) {
 				additionalAttributes = { ...additionalAttributes, device_fanout: 'false' }
 			}
 			const { user, device, } = jidDecode(participant.jid)!
-			devices.push({ user, device, jid: jidNormalizedUser(participant.jid) })	
+			devices.push({ user, device, jid: jidNormalizedUser(participant.jid) })
 		}
 
 		await authState.keys.transaction(async () => {
@@ -563,14 +595,14 @@ const lidCache = new NodeCache({
 				const senderKeyJids: string[] = []
 					for(const { user, device, jid } of devices) {
 						const server = jidDecode(jid)?.server || 'lid' ;
-						const senderId = jidEncode(user, server, device)					
+						const senderId = jidEncode(user, server, device)
 						senderKeyJids.push(senderId)
 						senderKeyMap[senderId] = true
-					
-						
+
+
 				}
-				
-				
+
+
 
 				// if there are some participants with whom the session has not been established
 				// if there are, we re-send the senderkey
@@ -600,30 +632,30 @@ const lidCache = new NodeCache({
 
 				await authState.keys.set({ 'sender-key-memory': { [jid]: senderKeyMap } })
 			} else {
-							
+
 				const { user: meUser, device: meDevice } = jidDecode(meId)!
-					
-				
-					if(!participant) {				
-				
-						devices.push({ user, device:0, jid })						
-						if(meDevice !== undefined && meDevice !== 0) {						
-						   
+
+
+					if(!participant) {
+
+						devices.push({ user, device:0, jid })
+						if(meDevice !== undefined && meDevice !== 0) {
+
 						   if(isLidUser(jid) && jlidUser)
-						   {							
+						   {
 							devices.push({ user: jlidUser, device: 0, jid:  jidNormalizedUser(meLid)});
 							const additionalDevices = await getUSyncDevices([ jid, meLid], !!useUserDevicesCache, true);
-							devices.push(...additionalDevices);							
+							devices.push(...additionalDevices);
 						   }
 						   else
 						   {
-						   devices.push({ user: meUser, device:0, jid:  jidNormalizedUser(meId)});						   
+						   devices.push({ user: meUser, device:0, jid:  jidNormalizedUser(meId)});
 						   const additionalDevices = await getUSyncDevices([ jid, meId], !!useUserDevicesCache, true)
-						   devices.push(...additionalDevices);	
-						   }					
-						
+						   devices.push(...additionalDevices);
+						   }
+
 					}
-						
+
 				}
 
 					const allJids: string[] = []
@@ -631,19 +663,19 @@ const lidCache = new NodeCache({
 					const otherJids: string[] = []
 					for(const { user, device, jid} of devices) {
 						const isMe = user === meUser
-						const ismeLid = user ===jlidUser						
+						const ismeLid = user ===jlidUser
 						const server = jidDecode(jid)?.server || 'lid' ;
 						const senderId = jidEncode(user, server, device)
-						if (isMe || ismeLid) {							
+						if (isMe || ismeLid) {
 								meJids.push(senderId);
 							}
 							else
-							{                 
-								otherJids.push(senderId);							
+							{
+								otherJids.push(senderId);
 							}
 						   allJids.push(senderId)
 					}
-			  
+
 					await assertSessions(allJids, isretry ? true : false, lids);
 
 				const [
@@ -689,7 +721,7 @@ const lidCache = new NodeCache({
 			if (participant) {
 				if (isJidGroup(destinationJid)) {
 					stanza.attrs.to = destinationJid
-					stanza.attrs.participant = participant.jid				
+					stanza.attrs.participant = participant.jid
 				} else if (areJidsSameUser(participant.jid, meId)) {
 					stanza.attrs.to = participant.jid
 					stanza.attrs.recipient = destinationJid
@@ -714,7 +746,7 @@ const lidCache = new NodeCache({
 				;(stanza.content as BinaryNode[]).push(...additionalNodes)
 			}
 			const content = normalizeMessageContent(message)!
-				const contentType = getContentType(content)!
+			const contentType = getContentType(content)!
 
 				if((isJidGroup(jid) || isJidUser(jid))  || isLidUser(jid) && (
 					contentType === 'interactiveMessage' ||
@@ -748,6 +780,54 @@ const lidCache = new NodeCache({
 
 					(stanza.content as BinaryNode[]).push(bizNode)
 				}
+
+			if (message?.listMessage) {
+				(stanza.content as BinaryNode[]).push({
+					tag: 'biz',
+					attrs: {},
+					content: [
+						{
+							tag: 'list',
+							attrs: { v: '2', type: 'product_list' },
+						}
+					]
+				});
+
+				logger.debug({ jid }, 'adding business node');
+			}
+
+			if (message?.interactiveMessage?.nativeFlowMessage) {
+				const buttonType = checkButtonType(message);
+
+				(stanza.content as BinaryNode[]).push({
+					tag: 'biz',
+					attrs: { ...(buttonType === "payment_info" || buttonType === "review_and_pay" ? { native_flow_name: buttonType } : {}), },
+					...(buttonType !== "payment_info" && buttonType !== "review_and_pay"
+						? {
+							content: [
+								{
+									tag: 'interactive',
+									attrs: {
+										type: 'native_flow'
+									},
+									content: [
+										{
+											tag: 'native_flow',
+											attrs: {
+												v: "2",
+												name: buttonType
+											}
+										}
+									]
+								}
+							]
+						}
+						: {})
+				});
+
+				logger.debug({ jid }, 'adding business node');
+			}
+
 
 			logger.debug({ msgId }, `sending message to ${participants.length} devices`)
 
